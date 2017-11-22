@@ -1,0 +1,116 @@
+---
+title: "Reproduce research Course 1"
+output: md_document
+---
+================================================================
+
+## R Markdown
+
+#Downloading the zipfile and unzip
+
+###Reading the Source file
+
+```{r download,echo = FALSE}
+library(data.table)
+
+if (!file.exists("./repduce_p1")){dir.create("./repduce_p1")}
+fileUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+download.file(fileUrl,destfile="./repduce_p1/Dataset.zip")
+unzip (zipfile="./repduce_p1/Dataset.zip",exdir="./repduce_p1")
+```
+
+<b>Reading File</b>
+
+```{r reading_file}
+library("data.table")
+new_activity <- data.table::fread(input = "./repduce_p1/activity.csv")
+```
+
+<b>Calculate the total number of steps taken per day</b>
+
+```{r Total_steps}
+
+Total_Steps <- new_activity[, c(lapply(.SD, sum,na.rm = FALSE)), .SDcols = c("steps"), by = .(date)] 
+```
+
+<b>Make a histogram of the total number of steps taken each day</b>
+
+```{r histogram_plot }
+hist(Total_Steps$steps ,xlab="Steps",main="Histogram of total number of steps taken per day",col="yellow")
+```
+
+<b>Calculation of mean and median</b> 
+
+```{r mean_median_data}
+Total_Steps[, .(Mean_Steps = mean(steps, na.rm = TRUE), Median_Steps = median(steps, na.rm = TRUE))]
+```
+
+<b>Time Series Plot</b>
+
+```{r time_series}
+IntervalDT <- new_activity[, c(lapply(.SD, mean, na.rm = TRUE)), .SDcols = c("steps"), by = .(interval)] 
+
+plot(IntervalDT$interval,IntervalDT$steps ,type = "l",xlab="INTERVAL",ylab="AVERAGE STEPS",main="Average number of Steps per interval",col="red")
+```
+
+<b>Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?</b>
+
+```{r max_interval}
+IntervalDT[steps == max(steps), .(max_interval = interval)]
+```
+<b>Calculate and report the total number of missing values in the dataset</b>
+
+```{r max_interval_na}
+nrow(new_activity[is.na(steps), ])
+```
+<p1>
+Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.</p1>
+
+```{r fill_missing_value}
+new_activity[is.na(steps), "steps"] <- new_activity[, c(lapply(.SD, median, na.rm = TRUE)),  .SDcols = c("steps")]
+```
+
+<b>Create a new dataset that is equal to the original dataset but with the missing data filled in.</b>
+
+```{r new_dataset}
+data.table::fwrite(x = new_activity, file = "./repduce_p1/tidyData.csv", quote = FALSE)
+```
+
+<b>Total number of steps taken per day</b>
+
+```{r total_steps_without_na}
+Total_Steps <- new_activity[, c(lapply(.SD, sum)), .SDcols = c("steps"), by = .(date)] 
+```
+<b> mean and median total number of steps taken per day</b>
+```{r Total_steps_mean_median}
+Total_Steps[, .(Mean_Steps = mean(steps), Median_Steps = median(steps))]
+```
+
+<b>Plot to setup total number of steps</b> 
+
+```{r total_steps_plot}
+library(ggplot2)
+
+ggplot(Total_Steps, aes(x = steps)) + geom_histogram(fill = "blue") + labs(title = "Daily Steps", x = "Steps", y = "Frequency")
+```
+
+<b>new factor variable in the dataset with two levels - "weekday" and "weekend"</b> 
+
+```{r weekday and weekend}
+new_activity <- data.table::fread(input = "./repduce_p1/activity.csv")
+new_activity[, date := as.POSIXct(date, format = "%Y-%m-%d")]
+new_activity[, `Day of Week`:= weekdays(x = date)]
+new_activity[grepl(pattern = "Monday|Tuesday|Wednesday|Thursday|Friday", x = `Day of Week`), "weekday or weekend"] <- "weekday"
+new_activity[grepl(pattern = "Saturday|Sunday", x = `Day of Week`), "weekday or weekend"] <- "weekend"
+new_activity[, `weekday or weekend` := as.factor(`weekday or weekend`)]
+head(new_activity,10)
+```
+
+<b>Time series plot</b>
+
+```{r time_series_plot_weekday_weekend}
+new_activity[is.na(steps), "steps"] <- new_activity[, c(lapply(.SD, median, na.rm = TRUE)), .SDcols = c("steps")]
+IntervalDT <- new_activity[, c(lapply(.SD, mean, na.rm = TRUE)), .SDcols = c("steps"), by = .(interval, `weekday or weekend`)] 
+
+ggplot(IntervalDT , aes(x = interval , y = steps, color=`weekday or weekend`)) + geom_line() + labs(title = "Avg. Daily Steps by Weektype", x = "Interval", y = "No. of Steps") + facet_wrap(~`weekday or weekend` , ncol = 1, nrow=2)
+```
